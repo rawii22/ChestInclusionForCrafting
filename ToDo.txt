@@ -1,0 +1,17 @@
+CanBuild()
+Has() --> GetOverflowContainer()
+GetOverflowContainer() returns container
+proceeds GetIngredients() returns a list of stacks from the container
+Gives that list to RemoveIngredients()
+RemoveIngredients --> GetItemByName()
+
+
+in Has(), if Has returns true, skip the next portion.
+else, loop through all the containers and then return true, num_found + overflow_found (?)
+
+in GetItemByName() in modmain, store the originally returned items object, run GetItemByName() on each chest found
+if we need to by checking external variables.
+
+in RemoveItem(), run at the end a loop that goes through each overflow chest
+
+MAKE REPOSITORY!!!
