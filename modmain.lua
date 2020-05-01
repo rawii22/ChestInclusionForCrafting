@@ -91,9 +91,28 @@ local function RemoveItemRemote(component)
 end
 AddComponentPostInit("inventory", RemoveItemRemote)
 
-
+--[[
 AddPrefabPostInitAny(function(inst)
 	if inst and inst:HasTag("player") then
 		inst:AddComponent("RemoteInventory")
+	end
+end)
+]]
+
+local function onnear(inst, player)
+	player:PushEvent("refreshinventory")
+end
+local function onfar(inst)
+	for k,v in pairs(GLOBAL.AllPlayers) do
+		v:PushEvent("refreshinventory")
+	end
+end
+
+AddPrefabPostInitAny(function(inst)
+	if inst and inst:HasTag("chest") then
+		inst:AddComponent("playerprox")
+		inst.components.playerprox:SetDist(20, 20)
+		inst.components.playerprox:SetOnPlayerNear(onnear)
+		inst.components.playerprox:SetOnPlayerFar(onfar)
 	end
 end)
