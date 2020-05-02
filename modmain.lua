@@ -108,6 +108,21 @@ local function HasClient(prefab)
 	end
 end
 AddPrefabPostInit("inventory_classified", HasClient)
+
+local function GetItemsClient(prefab, inst)
+	local OldGetItems = prefab.GetItems
+	prefab.GetItems = function(inst)
+		local items = OldGetItems(inst)
+		local chests = GetOverflowContainers(inst._parent)
+		for k,chest in pairs(chests) do
+			local chestItems = chest._itemspreview or chest._items or {}
+			for k, v in pairs(chestItems) do
+				table.insert(items, v:value())
+			end
+		end
+	end
+end
+AddPrefabPostInit("container_classified", GetItemsClient)
 --[[
 local function GetItemByNameClient(prefab)
 	local OldGetItemByName = prefab.GetItemByName
@@ -186,18 +201,16 @@ AddPrefabPostInit("inventory_classified", RemoveIngredientsClient)
 
 --[[
 local function onnear(inst, player)
-	print("onnear")
 	player:PushEvent("refreshinventory")
 end
 local function onfar(inst)
 	for k,v in pairs(GLOBAL.AllPlayers) do
-		print("onfar: "..v.prefab)
 		v:PushEvent("refreshinventory")
 	end
 end
 ]]
 AddPrefabPostInitAny(function(inst)
-	if inst and inst:HasTag("chest") or inst:HasTag("cellar") then
+	if inst and (inst:HasTag("chest") or inst:HasTag("cellar")) and GLOBAL.TheWorld.ismastersim then
 		inst:AddComponent("remoteinventory")
 		inst.components.remoteinventory:SetDist(20, 20)
 		--inst.components.remoteinventory:SetOnPlayerNear(onnear)
