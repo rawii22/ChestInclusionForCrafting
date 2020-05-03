@@ -4,7 +4,6 @@ local function OnUpdateCheck(self)
     for k,v in pairs(AllPlayers) do
 		local isNear = v:IsNear(self.inst, self.near)
 		if isNear ~= self.isnear[v] then
-			print("About to refresh...")
 			self.isnear[v] = isNear
 			self:Refresh(v)
 		end
@@ -23,6 +22,8 @@ local RemoteInventory = Class(function(self, inst)
 	--self.onfar = nil
 	
 	self.onupdatecheck = function() OnUpdateCheck(self) end
+	self.inst:ListenForEvent("itemget", function() self:RefreshCurrentPlayer() end)
+	self.inst:ListenForEvent("itemlose", function() self:RefreshCurrentPlayer() end)
 	
 	self.inst:StartUpdatingComponent(self)
 end)
@@ -55,13 +56,11 @@ function RemoteInventory:Stop()
 end
 
 function RemoteInventory:OnEntityWake()
-	print("OnEntityWake")
     self:Schedule()
     self:ForceUpdate()
 end
 
 function RemoteInventory:OnEntitySleep()
-	print("OnEntitySleep")
     self:ForceUpdate()
     self:Stop()
 end
@@ -73,18 +72,17 @@ function RemoteInventory:ForceUpdate()
 end
 
 function RemoteInventory:Refresh(player)
-	print("Refreshing for "..player.prefab)
-	for k,v in pairs(self.isnear) do
-		print("k: "..tostring(k))
-		print(v and "true" or "false")
-		
+	if player ~= nil then
+		if TheWorld.ismastersim then
+			player:PushEvent("refreshinventory")
+		else
+			player:PushEvent("refreshcrafting")
+		end
 	end
-	print("player: "..tostring(player))
-	if TheWorld.ismastersim then
-		player:PushEvent("refreshinventory")
-	else
-		player:PushEvent("refreshcrafting")
-	end
+end
+
+function RemoteInventory:RefreshCurrentPlayer()
+	self:Refresh(ThePlayer)
 end
 
 return RemoteInventory

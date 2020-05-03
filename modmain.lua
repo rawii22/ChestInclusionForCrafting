@@ -1,6 +1,14 @@
+local json = GLOBAL.json
+local pcall = GLOBAL.pcall
+
+local RADIUS = GetModConfigData("RADIUS")
+
 function GetOverflowContainers(player)
+	if GLOBAL.TheNet:GetIsClient() then
+        return {}
+    end
 	local x,y,z = player.Transform:GetWorldPosition()
-	local chests = GLOBAL.TheSim:FindEntities(x,y,z, 20, nil, {"quantum"}, {"chest", "cellar"})
+	local chests = GLOBAL.TheSim:FindEntities(x,y,z, RADIUS, nil, {"quantum"}, {"chest", "cellar", "fridge"})
 	return #chests > 0 and chests or nil
 end
 
@@ -26,11 +34,8 @@ local function HasOverride(component)
 		local overflows = GetOverflowContainers(self.inst)
 		if overflows ~= nil then
 			for k,chest in pairs(overflows) do
-				--if ItemCount < amount then
-					local chestHas, chestAmount = chest.components.container:Has(item, num_left_to_find)
-					ItemCount = ItemCount + chestAmount
-					--print("prefab: "..item.." chestHas: "..chestHas.." chestAmount: "..chestAmount)
-				--end
+				local chestHas, chestAmount = chest.components.container:Has(item, num_left_to_find)
+				ItemCount = ItemCount + chestAmount
 			end
 			HasItem = ItemCount >= amount
 		end
@@ -94,66 +99,18 @@ local function HasClient(prefab)
 	prefab.Has = function(inst, item, amount, runoriginal)
 		HasItem, ItemCount = OldHas(inst, item, amount)
 		local num_left_to_find = amount - ItemCount
-		local overflows = GetOverflowContainers(inst._parent)
-		if overflows ~= nil then
-			for k,chest in pairs(overflows) do
-				--if ItemCount < amount then
-					local chestHas, chestAmount = chest.replica.container:Has(item, num_left_to_find)
-					ItemCount = ItemCount + chestAmount
-				--end
+		for item,count in pairs(inst._parent.player_classified._itemTable) do
+			if item == prefab then
+				ItemCount = ItemCount + count
+				break
 			end
-			HasItem = ItemCount >= amount
 		end
+		HasItem = ItemCount >= amount
 		return HasItem, ItemCount
 	end
 end
 AddPrefabPostInit("inventory_classified", HasClient)
---[[
-local function GetItemsClient(prefab, inst)
-	local OldGetItems = prefab.GetItems
-	prefab.GetItems = function(inst)
-		local items = OldGetItems(inst)
-		local chests = GetOverflowContainers(inst._parent)
-		for k,chest in pairs(chests) do
-			local chestItems = chest._itemspreview or chest._items or {}
-			for k, v in pairs(chestItems) do
-				table.insert(items, v:value())
-			end
-		end
-	end
-end
-AddPrefabPostInit("container_classified", GetItemsClient)
-]]
---[[
-local function GetItemByNameClient(prefab)
-	local OldGetItemByName = prefab.GetItemByName
-	prefab.GetItemByName = function(self, item, amount)
-		local items = OldGetItemByName(self, item, amount)
-		local itemsCount = getNumItems(items)
-		print("itemsCount "..itemsCount)
-		local amount_left = amount - itemsCount
-		if amount_left > 0 then
-			local chests = GetOverflowContainers(self.inst)
-			if chests ~= nil then
-				for i,chest in pairs(chests) do
-					local chestItems = chest.replica.container:GetItemByName(item, amount_left)
-					if getNumItems(chestItems) > 0 then
-						for k,v in pairs(chestItems) do
-							items[k] = v
-							amount_left = amount_left - getNumItems(chestItems)
-							if amount_left <= 0 then
-								break
-							end
-						end
-					end
-				end
-			end
-		end
-		return items
-	end
-end
-AddPrefabPostInit("inventory_classified", GetItemByNameClient)
-]]
+
 local function RemoveIngredientsClient(prefab)
 	local OldRemoveIngredients = prefab.RemoveIngredients
 	prefab.RemoveIngredients = function(inst, recipe, ingredientmod)
@@ -199,15 +156,6 @@ local function RemoveIngredientsClient(prefab)
 end
 AddPrefabPostInit("inventory_classified", RemoveIngredientsClient)
 
-local function getNearbyChests(player)
-    if GLOBAL.TheNet:GetIsClient() then
-        return "isClient"
-    end
-	local x,y,z = player.Transform:GetWorldPosition()
-	local chests = GLOBAL.TheSim:FindEntities(x,y,z, 20, nil, {"quantum"}, {"chest", "cellar"})
-	return #chests > 0 and chests or nil
-end
-
 local function findAllFromChest(chests)
     if not chests or #chests == 0 then
         return {}
@@ -227,7 +175,7 @@ local function findAllFromChest(chests)
 end
 
 local function allItemUpdate(inst)
-    local chests = getNearbyChest(inst._parent)
+    local chests = GetOverflowContainers(inst._parent)
     local items = findAllFromChest(chests)
     local r, result = pcall(json.encode, items)
     if not r then print("Could not encode all items: "..tostring(items)) end
@@ -237,7 +185,7 @@ local function allItemUpdate(inst)
 end
 
 local function itemsDirty(inst)
-    print("itemsDirty: "..inst._items:value())
+    --print("itemsDirty: "..inst._items:value())
     local r, result = pcall(json.decode, inst._items:value())
     if not r then print("Could not decode JSON: "..inst._items:value()) end
     if result then
@@ -260,21 +208,10 @@ AddPrefabPostInit("player_classified", function(inst)
 end)
 -------------------------------------------------End for client
 
---[[
-local function onnear(inst, player)
-	player:PushEvent("refreshinventory")
-end
-local function onfar(inst)
-	for k,v in pairs(GLOBAL.AllPlayers) do
-		v:PushEvent("refreshinventory")
-	end
-end
-]]
+
 AddPrefabPostInitAny(function(inst)
-	if inst and (inst:HasTag("chest") or inst:HasTag("cellar")) then
+	if inst and (inst:HasTag("chest") or inst:HasTag("cellar") or inst:HasTag("fridge")) then
 		inst:AddComponent("remoteinventory")
-		inst.components.remoteinventory:SetDist(20, 20)
-		--inst.components.remoteinventory:SetOnPlayerNear(onnear)
-		--inst.components.remoteinventory:SetOnPlayerFar(onfar)
+		inst.components.remoteinventory:SetDist(RADIUS, RADIUS)
 	end
 end)
