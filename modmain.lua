@@ -108,7 +108,7 @@ local function HasClient(prefab)
 	end
 end
 AddPrefabPostInit("inventory_classified", HasClient)
-
+--[[
 local function GetItemsClient(prefab, inst)
 	local OldGetItems = prefab.GetItems
 	prefab.GetItems = function(inst)
@@ -123,6 +123,7 @@ local function GetItemsClient(prefab, inst)
 	end
 end
 AddPrefabPostInit("container_classified", GetItemsClient)
+]]
 --[[
 local function GetItemByNameClient(prefab)
 	local OldGetItemByName = prefab.GetItemByName
@@ -159,7 +160,7 @@ local function RemoveIngredientsClient(prefab)
 		if inst:IsBusy() then
 			return false
 		end
-		local chests = GetOverflowContainers(inst._parent)
+		local chests = GetOverflowContainers(inst._parent) or {}
 		for k,chest in pairs(chests) do
 			local chestClassified = chest.replica.container.classified
 			if chestClassified ~= nil and chestClassified:IsBusy() then
@@ -197,6 +198,66 @@ local function RemoveIngredientsClient(prefab)
 	end
 end
 AddPrefabPostInit("inventory_classified", RemoveIngredientsClient)
+
+local function getNearbyChests(player)
+    if GLOBAL.TheNet:GetIsClient() then
+        return "isClient"
+    end
+	local x,y,z = player.Transform:GetWorldPosition()
+	local chests = GLOBAL.TheSim:FindEntities(x,y,z, 20, nil, {"quantum"}, {"chest", "cellar"})
+	return #chests > 0 and chests or nil
+end
+
+local function findAllFromChest(chests)
+    if not chests or #chests == 0 then
+        return {}
+    end
+    local items = {}
+    for k, v in pairs(chests) do
+        if v.components.container then
+            local prefabs = {}
+            for _, i in pairs(v.components.container.slots) do prefabs[i.prefab] = true end
+            for t, _ in pairs(prefabs) do
+                local found, amount = v.components.container:Has(t, 1)
+                items[t] = (items[t] or 0) + amount
+            end
+        end
+    end
+    return items
+end
+
+local function allItemUpdate(inst)
+    local chests = getNearbyChest(inst._parent)
+    local items = findAllFromChest(chests)
+    local r, result = pcall(json.encode, items)
+    if not r then print("Could not encode all items: "..tostring(items)) end
+    if result then
+        inst._items:set(result)
+    end
+end
+
+local function itemsDirty(inst)
+    print("itemsDirty: "..inst._items:value())
+    local r, result = pcall(json.decode, inst._items:value())
+    if not r then print("Could not decode JSON: "..inst._items:value()) end
+    if result then
+        inst._itemTable = result
+    end
+    if GLOBAL.TheNet:GetIsClient() then
+        inst._parent:PushEvent("refreshcrafting") --stacksizechange
+    end
+end
+
+AddPrefabPostInit("player_classified", function(inst)
+	inst._itemTable = {}
+	inst._items = GLOBAL.net_string(inst.GUID, "_items", "itemsDirty")
+	inst._items:set("")
+	inst:ListenForEvent("itemsDirty", itemsDirty)
+	inst.allItemUpdate = allItemUpdate
+	if GLOBAL.TheWorld.ismastersim then
+		inst.smashtask = inst:DoPeriodicTask(15 * GLOBAL.FRAMES, allItemUpdate)
+	end
+end)
 -------------------------------------------------End for client
 
 --[[
@@ -210,7 +271,7 @@ local function onfar(inst)
 end
 ]]
 AddPrefabPostInitAny(function(inst)
-	if inst and (inst:HasTag("chest") or inst:HasTag("cellar")) and GLOBAL.TheWorld.ismastersim then
+	if inst and (inst:HasTag("chest") or inst:HasTag("cellar")) then
 		inst:AddComponent("remoteinventory")
 		inst.components.remoteinventory:SetDist(20, 20)
 		--inst.components.remoteinventory:SetOnPlayerNear(onnear)

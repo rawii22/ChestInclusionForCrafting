@@ -80,7 +80,11 @@ function RemoteInventory:Refresh(player)
 		
 	end
 	print("player: "..tostring(player))
-	player:PushEvent("refreshinventory")
+	if TheWorld.ismastersim then
+		player:PushEvent("refreshinventory")
+	else
+		player:PushEvent("refreshcrafting")
+	end
 end
 
 return RemoteInventory
