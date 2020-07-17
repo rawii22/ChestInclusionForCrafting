@@ -100,7 +100,7 @@ local function HasClient(prefab)
 		HasItem, ItemCount = OldHas(inst, item, amount)
 		local num_left_to_find = amount - ItemCount
 		for name,count in pairs(inst._parent.player_classified._itemTable) do
-			if name == prefab then
+			if name == item then
 				ItemCount = ItemCount + count
 				break
 			end
