@@ -2,13 +2,14 @@ local json = GLOBAL.json
 local pcall = GLOBAL.pcall
 
 local RADIUS = GetModConfigData("RADIUS")
+local CHESTERON = GetModConfigData("CHESTERON")
 
 function GetOverflowContainers(player)
 	if GLOBAL.TheNet:GetIsClient() then
         return {}
     end
 	local x,y,z = player.Transform:GetWorldPosition()
-	local chests = GLOBAL.TheSim:FindEntities(x,y,z, RADIUS, nil, {"quantum", "burnt"}, {"chest", "cellar", "fridge", "chester"})
+	local chests = GLOBAL.TheSim:FindEntities(x,y,z, RADIUS, nil, {"quantum", "burnt"}, {"chest", "cellar", "fridge", CHESTERON and "chester" or ""})
 	return #chests > 0 and chests or nil
 end
 
@@ -210,7 +211,7 @@ end)
 
 
 AddPrefabPostInitAny(function(inst)
-	if inst and (inst:HasTag("chest") or inst:HasTag("cellar") or inst:HasTag("fridge") or inst:HasTag("chester")) then
+	if inst and (inst:HasTag("chest") or inst:HasTag("cellar") or inst:HasTag("fridge") or inst:HasTag(CHESTERON and "chester" or "")) then
 		inst:AddComponent("remoteinventory")
 		inst.components.remoteinventory:SetDist(RADIUS, RADIUS)
 	end
