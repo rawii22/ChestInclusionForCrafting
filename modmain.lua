@@ -8,7 +8,7 @@ function GetOverflowContainers(player)
         return {}
     end
 	local x,y,z = player.Transform:GetWorldPosition()
-	local chests = GLOBAL.TheSim:FindEntities(x,y,z, RADIUS, nil, {"quantum"}, {"chest", "cellar", "fridge"})
+	local chests = GLOBAL.TheSim:FindEntities(x,y,z, RADIUS, nil, {"quantum", "burnt"}, {"chest", "cellar", "fridge"})
 	return #chests > 0 and chests or nil
 end
 
@@ -99,8 +99,8 @@ local function HasClient(prefab)
 	prefab.Has = function(inst, item, amount, runoriginal)
 		HasItem, ItemCount = OldHas(inst, item, amount)
 		local num_left_to_find = amount - ItemCount
-		for item,count in pairs(inst._parent.player_classified._itemTable) do
-			if item == prefab then
+		for name,count in pairs(inst._parent.player_classified._itemTable) do
+			if name == prefab then
 				ItemCount = ItemCount + count
 				break
 			end

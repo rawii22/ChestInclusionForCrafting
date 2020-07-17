@@ -1,6 +1,7 @@
 --This is basically a playerprox that only refreshes the inventory and that works for multiple players.
 
 local function OnUpdateCheck(self)
+	--print("In OnUpdateCheck")
     for k,v in pairs(AllPlayers) do
 		local isNear = v:IsNear(self.inst, self.near)
 		if isNear ~= self.isnear[v] then
@@ -72,6 +73,7 @@ function RemoteInventory:ForceUpdate()
 end
 
 function RemoteInventory:Refresh(player)
+	--print("In refresh")
 	if player ~= nil then
 		if TheWorld.ismastersim then
 			player:PushEvent("refreshinventory")

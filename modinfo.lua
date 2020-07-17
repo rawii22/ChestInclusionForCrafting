@@ -1,7 +1,9 @@
 name = "Chest Includer"
-description = "" --something with Syl
+description = "This mod allows you to craft objects using items from nearby chests.\n\nThanks to Syl for some multiplayer functionality!!" --something with Syl
 author = "rawii22 & lord_of_les_ralph"
 version = "1.0"
+icon = "modicon.tex"
+icon_atlas = "modicon.xml"
 
 forumthread = ""
 
@@ -23,7 +25,6 @@ configuration_options = {
             { description = "20", data = 20 },
             { description = "40", data = 40 },
             { description = "100", data = 100 },
-            { description = "Infinite", data = -1 },
         },
         default = 20
     },
