@@ -8,7 +8,7 @@ function GetOverflowContainers(player)
         return {}
     end
 	local x,y,z = player.Transform:GetWorldPosition()
-	local chests = GLOBAL.TheSim:FindEntities(x,y,z, RADIUS, nil, {"quantum", "burnt"}, {"chest", "cellar", "fridge"})
+	local chests = GLOBAL.TheSim:FindEntities(x,y,z, RADIUS, nil, {"quantum", "burnt"}, {"chest", "cellar", "fridge", "chester"})
 	return #chests > 0 and chests or nil
 end
 
@@ -210,7 +210,7 @@ end)
 
 
 AddPrefabPostInitAny(function(inst)
-	if inst and (inst:HasTag("chest") or inst:HasTag("cellar") or inst:HasTag("fridge")) then
+	if inst and (inst:HasTag("chest") or inst:HasTag("cellar") or inst:HasTag("fridge") or inst:HasTag("chester")) then
 		inst:AddComponent("remoteinventory")
 		inst.components.remoteinventory:SetDist(RADIUS, RADIUS)
 	end
