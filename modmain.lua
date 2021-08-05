@@ -5,9 +5,9 @@ local RADIUS = GetModConfigData("RADIUS")
 local CHESTERON = GetModConfigData("CHESTERON")
 
 function GetOverflowContainers(player)
-	if GLOBAL.TheNet:GetIsClient() then
+	--[[if GLOBAL.TheNet:GetIsClient() then --apparently this check is not needed because clients have access to TheSim and their own Transform component.
         return {}
-    end
+    end]]
 	local x,y,z = player.Transform:GetWorldPosition()
 	local chests = GLOBAL.TheSim:FindEntities(x,y,z, RADIUS, nil, {"quantum", "burnt"}, {"chest", "cellar", "fridge", CHESTERON and "chester" or ""})
 	return #chests > 0 and chests or nil
@@ -30,7 +30,9 @@ end
 local function HasOverride(component)
 	local OldHas = component.Has
 	component.Has = function(self, item, amount, runoriginal)
+		-- Search in inventory, active item, & backpack
 		HasItem, ItemCount = OldHas(self, item, amount)
+		-- Search in nearby containers
 		local num_left_to_find = amount - ItemCount
 		local overflows = GetOverflowContainers(self.inst)
 		if overflows ~= nil then
@@ -48,7 +50,9 @@ AddComponentPostInit("inventory", HasOverride)
 local function GetItemByNameOverride(component)
 	local OldGetItemByName = component.GetItemByName
 	component.GetItemByName = function(self, item, amount)
+		-- Search in inventory, active item, & backpack
 		local items = OldGetItemByName(self, item, amount)
+		-- Search in nearby containers
 		local itemsCount = getNumItems(items)
 		local amount_left = amount - itemsCount
 		if amount_left > 0 then
@@ -76,11 +80,14 @@ AddComponentPostInit("inventory", GetItemByNameOverride)
 local function RemoveItemRemote(component)
 	local OldRemoveItem = component.RemoveItem
 	component.RemoveItem = function(self, item, wholestack)
+		-- Remove from inventory, active item, or backpack
 		local oldItem = OldRemoveItem(self, item, wholestack) --since this function was meant to always work, we pickup here if OldItem returns nil
+		-- Remove from nearby containers
 		if oldItem == nil then
 			local chests = GetOverflowContainers(self.inst)
 			for k,chest in pairs(chests) do
 				local remoteOldItem = chest.components.container:RemoveItem(item, wholestack)
+				chest:PushEvent("itemlose")
 				if remoteOldItem ~= nil then
 					return remoteOldItem
 				end
@@ -98,7 +105,9 @@ AddComponentPostInit("inventory", RemoveItemRemote)
 local function HasClient(prefab)
 	local OldHas = prefab.Has
 	prefab.Has = function(inst, item, amount, runoriginal)
+		-- Search in inventory, active item, & backpack
 		HasItem, ItemCount = OldHas(inst, item, amount)
+		-- Search in nearby containers, available on client via variable on player, '_itemTable'
 		local num_left_to_find = amount - ItemCount
 		for name,count in pairs(inst._parent.player_classified._itemTable) do
 			if name == item then
@@ -131,7 +140,9 @@ local function RemoveIngredientsClient(prefab)
 			local _, total = inst:Has(v.type, v.amount)
 			allItems[v.type] = total
 		end
+		-- Remove recipe ingredients from inventory, active item, or backpack
 		OldRemoveIngredients(inst, recipe, ingredientmod)
+		-- Remove recipe ingredients from nearby containers
 		local newAllItems = {}
 		for k,v in ipairs(recipe.ingredients) do
 			local _, total = inst:Has(v.type, v.amount)
@@ -149,6 +160,7 @@ local function RemoveIngredientsClient(prefab)
 						chest.replica.container.classified:ConsumeByName(v.type, chestAmount)
 						amountLeft = amountLeft - chestAmount
 					end
+					chest:PushEvent("itemlose")
 				end
 			end
 		end
@@ -157,6 +169,7 @@ local function RemoveIngredientsClient(prefab)
 end
 AddPrefabPostInit("inventory_classified", RemoveIngredientsClient)
 
+-- Get all prefabs stored in 'chests' and the amount for each
 local function findAllFromChest(chests)
     if not chests or #chests == 0 then
         return {}
@@ -175,6 +188,7 @@ local function findAllFromChest(chests)
     return items
 end
 
+-- Publish available items in nearby containers to net variable on player, '_items'
 local function allItemUpdate(inst)
     local chests = GetOverflowContainers(inst._parent)
     local items = findAllFromChest(chests)
@@ -185,6 +199,7 @@ local function allItemUpdate(inst)
     end
 end
 
+-- When '_items' changes, store available items in '_itemTable'
 local function itemsDirty(inst)
     --print("itemsDirty: "..inst._items:value())
     local r, result = pcall(json.decode, inst._items:value())
@@ -208,6 +223,47 @@ AddPrefabPostInit("player_classified", function(inst)
 	end
 end)
 -------------------------------------------------End for client
+
+-- These functions override the FindItems functionality defined in Gem Core API making Gem Core compatible with this mod.
+-- Host
+local function FindItemsOverride(component)
+	local OldFindItems = component.FindItems
+	component.FindItems = function(self, fn)
+		-- Search in inventory, active item, & backpack
+		local items = OldFindItems(self, fn)
+		-- Search in nearby containers
+		local overflows = GetOverflowContainers(self.inst) or {}
+		for k, overflow in pairs(overflows) do
+			for _, item in pairs(overflow.components.container:FindItems(fn)) do
+				table.insert(items, item)
+			end
+		end
+		return items
+	end
+end
+AddComponentPostInit("inventory", FindItemsOverride) --'FindItems' exists in the main game so we do not need to check if GemCore is enabled
+
+-- Client
+local function FindItemsClient(prefab)
+	local OldFindItems = prefab.FindItems
+	prefab.FindItems = function(inst, fn)
+		-- Search in inventory, active item, & backpack
+		local items = OldFindItems(inst, fn)
+		-- Search in nearby containers
+		local overflows = GetOverflowContainers(inst._parent) or {}
+		for k, overflow in pairs(overflows) do
+			for _, item in pairs(overflow.replica.container:FindItems(fn)) do
+				table.insert(items, item)
+			end
+		end
+		return items
+	end
+end
+
+if GLOBAL.KnownModIndex:IsModEnabled("workshop-1378549454") then --This is the name of the Gem Core API Mod
+	AddPrefabPostInit("inventory_classified", FindItemsClient)
+end
+------------------------------------------End of Gem Core Compatibility Section
 
 
 AddPrefabPostInitAny(function(inst)
