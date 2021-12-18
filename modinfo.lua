@@ -1,7 +1,7 @@
 name = "Chest Includer"
 description = "This mod allows you to craft objects using items from nearby chests.\n\nThanks to Syl for some multiplayer functionality!!\n https://github.com/rawii22/ChestInclusionForCrafting" --something with Syl
 author = "rawii22 & lord_of_les_ralph"
-version = "1.1.0"
+version = "1.2.0"
 icon = "modicon.tex"
 icon_atlas = "modicon.xml"
 
@@ -30,8 +30,8 @@ configuration_options = {
     },
 	{
 		name = "CHESTERON",
-		label = "Chester Inclusion",
-		hover = "\"On\" will include chester. \"Off\" will exclude chester.",
+		label = "Chester/Hutch Inclusion",
+		hover = "\"On\" will include Chester and Hutch. \"Off\" will exclude Chester and Hutch.",
 		options = {
 			{ description = "Off", data = false},
 			{ description = "On", data = true},

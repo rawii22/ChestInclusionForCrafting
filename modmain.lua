@@ -9,7 +9,7 @@ function GetOverflowContainers(player)
         return {}
     end]]
 	local x,y,z = player.Transform:GetWorldPosition()
-	local chests = GLOBAL.TheSim:FindEntities(x,y,z, RADIUS, nil, {"quantum", "burnt"}, {"chest", "cellar", "fridge", CHESTERON and "chester" or ""})
+	local chests = GLOBAL.TheSim:FindEntities(x,y,z, RADIUS, nil, {"quantum", "burnt"}, {"chest", "cellar", "fridge", CHESTERON and "chester" or "", CHESTERON and "hutch" or ""})
 	return #chests > 0 and chests or nil
 end
 
@@ -63,10 +63,10 @@ local function GetItemByNameOverride(component)
 					if getNumItems(chestItems) > 0 then
 						for k,v in pairs(chestItems) do
 							items[k] = v
-							amount_left = amount_left - getNumItems(chestItems)
-							if amount_left <= 0 then
-								break
-							end
+						end
+						amount_left = amount_left - getNumItems(chestItems)
+						if amount_left <= 0 then
+							break
 						end
 					end
 				end
@@ -87,7 +87,6 @@ local function RemoveItemRemote(component)
 			local chests = GetOverflowContainers(self.inst)
 			for k,chest in pairs(chests) do
 				local remoteOldItem = chest.components.container:RemoveItem(item, wholestack)
-				chest:PushEvent("itemlose")
 				if remoteOldItem ~= nil then
 					return remoteOldItem
 				end
@@ -151,16 +150,17 @@ local function RemoveIngredientsClient(prefab)
 		for k,v in ipairs(recipe.ingredients) do
 			local amountRemoved = allItems[v.type] - newAllItems[v.type]
 			local amountLeft = v.amount - amountRemoved
-			for k,chest in pairs(chests) do
-				local chestHas, chestAmount = chest.replica.container:Has(v.type, amountLeft)
-				if chest.replica.container.classified ~= nil  then
-					if chestHas then
-						chest.replica.container.classified:ConsumeByName(v.type, amountLeft)
-					else
-						chest.replica.container.classified:ConsumeByName(v.type, chestAmount)
-						amountLeft = amountLeft - chestAmount
+			if amountLeft > 0 then
+				for k,chest in pairs(chests) do
+					local chestHas, chestAmount = chest.replica.container:Has(v.type, amountLeft)
+					if chest.replica.container.classified ~= nil  then
+						if chestHas then
+							chest.replica.container.classified:ConsumeByName(v.type, amountLeft)
+						else
+							chest.replica.container.classified:ConsumeByName(v.type, chestAmount)
+							amountLeft = amountLeft - chestAmount
+						end
 					end
-					-- chest:PushEvent("itemlose") - appears to cause crash related to issue https://github.com/rawii22/ChestInclusionForCrafting/issues/1
 				end
 			end
 		end
