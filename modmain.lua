@@ -160,7 +160,7 @@ local function RemoveIngredientsClient(prefab)
 						chest.replica.container.classified:ConsumeByName(v.type, chestAmount)
 						amountLeft = amountLeft - chestAmount
 					end
-					chest:PushEvent("itemlose")
+					-- chest:PushEvent("itemlose") - appears to cause crash related to issue https://github.com/rawii22/ChestInclusionForCrafting/issues/1
 				end
 			end
 		end
