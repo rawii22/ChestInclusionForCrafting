@@ -1,7 +1,7 @@
 name = "Chest Includer"
 description = "This mod allows you to craft objects using items from nearby chests.\n\nThanks to Syl for some multiplayer functionality!!\n https://github.com/rawii22/ChestInclusionForCrafting" --something with Syl
 author = "rawii22 & lord_of_les_ralph"
-version = "1.3.0"
+version = "1.3.1"
 icon = "modicon.tex"
 icon_atlas = "modicon.xml"
 

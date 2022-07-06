@@ -315,7 +315,7 @@ end
 
 
 AddPrefabPostInitAny(function(inst)
-	if inst and (inst:HasTag("chest") or inst:HasTag("cellar") or inst:HasTag("fridge") or inst:HasTag(CHESTERON and "chester" or "")) then
+	if inst and (inst:HasTag("chest") or inst:HasTag("cellar") or inst:HasTag("fridge") or inst:HasTag(CHESTERON and "chester" or "") or inst:HasTag(CHESTERON and "hutch" or "")) then
 		inst:AddComponent("remoteinventory")
 		inst.components.remoteinventory:SetDist(RADIUS, RADIUS)
 	end
