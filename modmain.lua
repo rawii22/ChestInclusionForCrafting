@@ -4,6 +4,11 @@ local pcall = GLOBAL.pcall
 local RADIUS = GetModConfigData("RADIUS")
 local CHESTERON = GetModConfigData("CHESTERON")
 
+--[[
+UPDATE
+DST now supports crafting from open chests. In order to prevent counting items twice, we need to ignore open chests in some cases, but naturally we always search nearby closed chests.
+--]]
+
 function GetOverflowContainers(player)
 	--[[if GLOBAL.TheNet:GetIsClient() then --apparently this check is not needed because clients have access to TheSim and their own Transform component.
         return {}
@@ -29,7 +34,7 @@ end
 -------------------------------------------------Begin for host
 local function HasOverride(component)
 	local OldHas = component.Has
-	component.Has = function(self, item, amount, runoriginal)
+	component.Has = function(self, item, amount)
 		-- Search in inventory, active item, & backpack
 		HasItem, ItemCount = OldHas(self, item, amount)
 		-- Search in nearby containers
@@ -97,15 +102,58 @@ local function RemoveItemRemote(component)
 	end
 end
 AddComponentPostInit("inventory", RemoveItemRemote)
+
+local function isChestOpen(inventory, chest)
+	for containerInst in pairs (inventory.opencontainers) do
+		if containerInst == chest then
+			return true
+		end
+	end
+	return false
+end
+
+local function GetCraftingIngredientOverride(component)
+	local OldGetCraftingIngredient = component.GetCraftingIngredient
+	component.GetCraftingIngredient = function(self, item, amount)
+		--print("RemoveItemRemote "..(tostring(item) or ""))
+		-- Search inventory, active item, & backpack
+		local crafting_items = OldGetCraftingIngredient(self, item, amount) --since this function was meant to always work, we pickup here if OldItem returns nil
+		
+		-- Count total number found
+		local total_num_found = 0
+		for prefab,v in pairs(crafting_items) do
+			total_num_found = total_num_found + v
+		end
+		
+		-- Search nearby containers
+		if total_num_found < amount then
+			local chests = GetOverflowContainers(self.inst) or {}
+			for k,chest in pairs(chests) do
+				if not isChestOpen(self, chest) then
+					for item,v in pairs(chest.components.container:GetCraftingIngredient(item, amount - total_num_found, true)) do
+						crafting_items[item] = v
+						total_num_found = total_num_found + v
+						if total_num_found >= amount then
+							return crafting_items
+						end
+					end
+				end
+			end
+		else
+			return crafting_items
+		end
+	end
+end
+AddComponentPostInit("inventory", GetCraftingIngredientOverride)
 -------------------------------------------------End for host
 
 
 -------------------------------------------------Begin for client
 local function HasClient(prefab)
 	local OldHas = prefab.Has
-	prefab.Has = function(inst, item, amount, runoriginal)
+	prefab.Has = function(inst, item, amount, checkallcontainers)
 		-- Search in inventory, active item, & backpack
-		HasItem, ItemCount = OldHas(inst, item, amount)
+		HasItem, ItemCount = OldHas(inst, item, amount, false) --the checkallcontainers flag is false here because we don't want the game to count items from open chests twice.
 		-- Search in nearby containers, available on client via variable on player, '_itemTable'
 		local num_left_to_find = amount - ItemCount
 		for name,count in pairs(inst._parent.player_classified._itemTable) do
